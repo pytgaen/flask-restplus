@@ -112,6 +112,16 @@ def parse_docstring(obj):
     raw = getdoc(obj)
     summary = raw.strip(' \n').split('\n')[0].split('.')[0] if raw else None
     raises = {}
+    keyword = []
+    if raw:
+        raw_without_keyword = ""
+        for line in raw.split('\n'):
+            line = line.strip()
+            if (line.startswith("[!") and line.endswith("]")):
+                keyword.append(line[2:-1])
+            else:
+                raw_without_keyword += line
+        raw=raw_without_keyword
     details = raw.replace(summary, '').lstrip('. \n').strip(' \n') if raw else None
     for match in RE_RAISES.finditer(raw or ''):
         raises[match.group('name')] = match.group('description')
@@ -124,6 +134,7 @@ def parse_docstring(obj):
         'returns': None,
         'params': [],
         'raises': raises,
+        'keyword' : keyword,
     }
     return parsed
 
@@ -245,6 +256,10 @@ class Swagger(object):
                 inherited_params = OrderedDict((k, v) for k, v in iteritems(params) if k in method_params)
                 method_doc['params'] = merge(inherited_params, method_params)
             doc[method] = method_doc
+            if 'docstring' in doc.get(method, OrderedDict()) and 'keyword' in doc.get(method, OrderedDict())['docstring']:
+                if "security:JWT" in doc.get(method, OrderedDict())['docstring']['keyword']:
+                    method_doc["security"] = [{"bearerAuth": []}]
+
         return doc
 
     def expected_params(self, doc):
